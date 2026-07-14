@@ -10,13 +10,13 @@ import androidx.room.Transaction
 interface DomainDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUserDomain(userDomain: UserDomain)
+    fun insertUserDomain(userDomain: UserDomain)
 
     @Query("DELETE FROM user_domains WHERE domain = :domain")
-    suspend fun deleteUserDomain(domain: String)
+    fun deleteUserDomain(domain: String)
 
     @Query("SELECT * FROM user_domains")
-    suspend fun getAllUserDomains(): List<UserDomain>
+    fun getAllUserDomains(): List<UserDomain>
 
     @Query("SELECT COUNT(*) FROM auto_domains WHERE domain = :domain LIMIT 1")
     suspend fun isAutoBlocked(domain: String): Int
