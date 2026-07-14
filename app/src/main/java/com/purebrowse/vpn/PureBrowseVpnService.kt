@@ -48,12 +48,6 @@ class PureBrowseVpnService : VpnService() {
         return false
     }
 
-    // Called from C++ via JNI to protect the proxy socket
-    @androidx.annotation.Keep
-    fun protectSocket(fd: Int): Boolean {
-        return protect(fd)
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISCONNECT) {
             stopVpn()

@@ -172,15 +172,17 @@ class MainActivity : AppCompatActivity() {
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
             
-        // Initial sync on startup
-        val oneTimeRequest = OneTimeWorkRequestBuilder<BlocklistUpdateWorker>()
-            .setConstraints(constraints)
-            .build()
-        WorkManager.getInstance(this).enqueueUniqueWork(
-            "InitialBlocklistUpdateWork",
-            ExistingWorkPolicy.KEEP,
-            oneTimeRequest
-        )
+        // Initial sync on startup ONLY if database has never been downloaded
+        if (prefs.getString("blocklist_version", "").isNullOrEmpty()) {
+            val oneTimeRequest = OneTimeWorkRequestBuilder<BlocklistUpdateWorker>()
+                .setConstraints(constraints)
+                .build()
+            WorkManager.getInstance(this).enqueueUniqueWork(
+                "InitialBlocklistUpdateWork",
+                ExistingWorkPolicy.KEEP,
+                oneTimeRequest
+            )
+        }
 
         // Periodic sync every 24 hours
         val updateRequest = PeriodicWorkRequestBuilder<BlocklistUpdateWorker>(24, TimeUnit.HOURS)

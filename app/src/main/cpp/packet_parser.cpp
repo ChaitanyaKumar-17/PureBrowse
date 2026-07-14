@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <cstring>
+#include <thread>
 
 #define LOG_TAG "VPN-JNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -84,23 +85,15 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
         JNIEnv* env, jobject thisObj, jint tun_fd) {
     
-    int proxy_fd = socket(AF_INET, SOCK_DGRAM, 0);
     jclass serviceClass = env->GetObjectClass(thisObj);
-    jmethodID protectMethod = env->GetMethodID(serviceClass, "protectSocket", "(I)Z");
     jmethodID isBlockedMethod = env->GetMethodID(serviceClass, "isDomainBlocked", "(Ljava/lang/String;)Z");
-    env->CallBooleanMethod(thisObj, protectMethod, proxy_fd);
     
     struct sockaddr_in dns_server;
     dns_server.sin_family = AF_INET;
     dns_server.sin_port = htons(53);
     inet_pton(AF_INET, "8.8.8.8", &dns_server.sin_addr);
 
-    struct timeval tv;
-    tv.tv_sec = 2; tv.tv_usec = 0;
-    setsockopt(proxy_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-
     std::vector<uint8_t> buffer(65535);
-    std::vector<uint8_t> resp_buffer(65535);
 
     while (true) {
         ssize_t length = read(tun_fd, buffer.data(), buffer.size());
@@ -128,17 +121,29 @@ Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
                         send_dns_response(tun_fd, buffer.data(), length, true);
                         continue;
                     } else {
-                        sendto(proxy_fd, buffer.data() + ip_header_len + 8, length - ip_header_len - 8, 0, (struct sockaddr*)&dns_server, sizeof(dns_server));
-                        socklen_t addr_len = sizeof(dns_server);
-                        ssize_t resp_len = recvfrom(proxy_fd, resp_buffer.data(), resp_buffer.size(), 0, (struct sockaddr*)&dns_server, &addr_len);
-                        if (resp_len > 0) {
-                            send_dns_response(tun_fd, buffer.data(), length, false, resp_buffer.data(), resp_len);
-                        }
+                        // Spawn a detached thread for every external query so slow responses don't block the VPN loop
+                        std::vector<uint8_t> req_packet(buffer.begin(), buffer.begin() + length);
+                        
+                        std::thread([tun_fd, req_packet, ip_header_len, dns_server]() {
+                            int proxy_fd = socket(AF_INET, SOCK_DGRAM, 0);
+                            struct timeval tv;
+                            tv.tv_sec = 3; tv.tv_usec = 0;
+                            setsockopt(proxy_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+                            sendto(proxy_fd, req_packet.data() + ip_header_len + 8, req_packet.size() - ip_header_len - 8, 0, (struct sockaddr*)&dns_server, sizeof(dns_server));
+                            
+                            std::vector<uint8_t> resp_buffer(4096);
+                            socklen_t addr_len = sizeof(dns_server);
+                            ssize_t resp_len = recvfrom(proxy_fd, resp_buffer.data(), resp_buffer.size(), 0, (struct sockaddr*)&dns_server, &addr_len);
+                            if (resp_len > 0) {
+                                send_dns_response(tun_fd, (uint8_t*)req_packet.data(), req_packet.size(), false, resp_buffer.data(), resp_len);
+                            }
+                            close(proxy_fd);
+                        }).detach();
                         continue;
                     }
                 }
             }
         }
     }
-    close(proxy_fd);
 }
