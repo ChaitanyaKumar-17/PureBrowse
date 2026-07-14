@@ -23,6 +23,8 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 // Using fallbackToDestructiveMigration since we want to drop data if schema changes
                 .fallbackToDestructiveMigration()
+                // Force Write-Ahead Logging so massive blocklist updates don't lock the DNS proxy thread
+                .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                 .build()
                 INSTANCE = instance
                 instance

@@ -36,8 +36,14 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
             val listUrl = blocklistObj?.optString("raw_url")
             val newVersion = blocklistObj?.optString("updated") ?: ""
 
-            // TODO: Compare newVersion with a locally stored version in SharedPreferences.
-            // If they are the same, return Result.success() immediately.
+            val prefs = applicationContext.getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE)
+            val currentVersion = prefs.getString("blocklist_version", "")
+
+            if (newVersion == currentVersion && currentVersion!!.isNotEmpty()) {
+                Log.i(TAG, "Blocklist is already up to date ($newVersion). Skipping download.")
+                setProgress(workDataOf("PROGRESS" to "Database Up to Date"))
+                return Result.success()
+            }
 
             Log.i(TAG, "New version detected: \$newVersion. Downloading blocklist...")
 
@@ -70,9 +76,8 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
             database.domainDao().replaceAllAutoDomains(domains)
 
             Log.i(TAG, "Blocklist update complete!")
+            prefs.edit().putString("blocklist_version", newVersion).apply()
             setProgress(workDataOf("PROGRESS" to "Complete!"))
-
-            // TODO: Save the newVersion string to SharedPreferences so we don't re-download it tomorrow unless it changes.
 
             return Result.success()
 
