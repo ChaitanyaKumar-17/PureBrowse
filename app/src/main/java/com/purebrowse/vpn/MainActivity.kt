@@ -6,6 +6,13 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.purebrowse.vpn.worker.BlocklistUpdateWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -25,6 +32,7 @@ class MainActivity : AppCompatActivity() {
             intent.action = PureBrowseVpnService.ACTION_DISCONNECT
             startService(intent)
         }
+        scheduleBlocklistUpdates()
     }
 
     private fun prepareVpn() {
@@ -51,5 +59,21 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, PureBrowseVpnService::class.java)
         intent.action = PureBrowseVpnService.ACTION_CONNECT
         startService(intent)
+    }
+
+    private fun scheduleBlocklistUpdates() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val updateRequest = PeriodicWorkRequestBuilder<BlocklistUpdateWorker>(24, TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "BlocklistUpdateWork",
+            ExistingPeriodicWorkPolicy.KEEP,
+            updateRequest
+        )
     }
 }
