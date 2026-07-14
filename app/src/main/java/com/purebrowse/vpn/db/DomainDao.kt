@@ -24,6 +24,12 @@ interface DomainDao {
     @Query("SELECT COUNT(*) FROM user_domains WHERE domain = :domain LIMIT 1")
     suspend fun isUserBlocked(domain: String): Int
 
+    @Query("SELECT COUNT(*) FROM auto_domains WHERE domain = :domain LIMIT 1")
+    fun isAutoBlockedSync(domain: String): Int
+
+    @Query("SELECT COUNT(*) FROM user_domains WHERE domain = :domain LIMIT 1")
+    fun isUserBlockedSync(domain: String): Int
+
     // Used for the WorkManager update process
     @Query("DELETE FROM auto_domains")
     suspend fun clearAutoDomains()

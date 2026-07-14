@@ -11,10 +11,30 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
+std::string extract_dns_query(const uint8_t* payload, size_t payload_len) {
+    if (payload_len <= 12) return "";
+    size_t offset = 12; // Skip DNS header
+    std::string domain = "";
+    while (offset < payload_len) {
+        uint8_t len = payload[offset];
+        if (len == 0) break; // End of name
+        // Check for pointer (compression), rare in query section
+        if ((len & 0xC0) == 0xC0) break; 
+        
+        offset++;
+        if (offset + len > payload_len) return "";
+        
+        if (!domain.empty()) domain += ".";
+        domain.append((const char*)(payload + offset), len);
+        offset += len;
+    }
+    return domain;
+}
+
 extern "C" JNIEXPORT void JNICALL
 Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
         JNIEnv* env,
-        jobject /* this */,
+        jobject thisObj,
         jint tun_fd) {
     
     LOGI("Packet processing loop started. TUN FD: %d", tun_fd);
@@ -29,11 +49,8 @@ Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
             break;
         }
 
-        if (length == 0) {
-            continue;
-        }
+        if (length == 0) continue;
 
-        // Basic IPv4 Check
         uint8_t version = buffer[0] >> 4;
         if (version != 4) {
             write(tun_fd, buffer.data(), length);
@@ -53,19 +70,29 @@ Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
                 uint16_t dest_port = (buffer[ip_header_len + 2] << 8) | buffer[ip_header_len + 3];
 
                 if (dest_port == 53) {
-                    LOGI("Intercepted DNS query packet! Length: %zd", length);
+                    std::string domain = extract_dns_query(buffer.data() + ip_header_len + 8, length - ip_header_len - 8);
                     
-                    // TODO: JNI callback to Kotlin DomainDao here
-                    // TODO: Inject NXDOMAIN if blocked
-
-                    // For MVP, we pass it through
-                    write(tun_fd, buffer.data(), length);
-                    continue;
+                    if (!domain.empty()) {
+                        jstring jdomain = env->NewStringUTF(domain.c_str());
+                        jclass serviceClass = env->GetObjectClass(thisObj);
+                        jmethodID isBlockedMethod = env->GetMethodID(serviceClass, "isDomainBlocked", "(Ljava/lang/String;)Z");
+                        jboolean isBlocked = env->CallBooleanMethod(thisObj, isBlockedMethod, jdomain);
+                        env->DeleteLocalRef(jdomain);
+                        
+                        if (isBlocked) {
+                            LOGI("BLOCKED: %s", domain.c_str());
+                            // Simply drop the packet by NOT writing it back to the TUN interface.
+                            // A real implementation would craft a DNS NXDOMAIN response packet and inject it here for faster failure.
+                            continue;
+                        } else {
+                            LOGI("ALLOWED: %s", domain.c_str());
+                        }
+                    }
                 }
             }
         }
 
-        // Pass non-DNS packets through untouched
+        // Pass allowed or non-DNS packets through untouched
         write(tun_fd, buffer.data(), length);
     }
 }

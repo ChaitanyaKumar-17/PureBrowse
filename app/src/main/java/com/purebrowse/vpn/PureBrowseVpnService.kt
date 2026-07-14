@@ -22,6 +22,13 @@ class PureBrowseVpnService : VpnService() {
 
     private external fun startPacketProcessing(tunFd: Int)
 
+    // Called from C++ via JNI
+    fun isDomainBlocked(domain: String): Boolean {
+        val db = com.purebrowse.vpn.db.AppDatabase.getDatabase(this)
+        val dao = db.domainDao()
+        return dao.isAutoBlockedSync(domain) > 0 || dao.isUserBlockedSync(domain) > 0
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISCONNECT) {
             stopVpn()
