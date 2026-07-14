@@ -57,7 +57,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnAddDomain.setOnClickListener {
-            val domain = etManualDomain.text.toString().trim().lowercase()
+            var domain = etManualDomain.text.toString().trim().lowercase()
+            domain = domain.replace("https://", "").replace("http://", "")
+            domain = domain.substringBefore("/")
+
             if (domain.isNotEmpty() && !domain.contains(" ")) {
                 addManualDomain(domain)
             } else {
@@ -66,15 +69,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         WorkManager.getInstance(this)
-            .getWorkInfosForUniqueWorkLiveData("BlocklistUpdateWork")
+            .getWorkInfosForUniqueWorkLiveData("InitialBlocklistUpdateWork")
             .observe(this) { workInfos ->
                 if (workInfos.isNotEmpty()) {
                     val workInfo = workInfos[0]
                     if (workInfo.state == WorkInfo.State.RUNNING) {
                         val progress = workInfo.progress.getString("PROGRESS") ?: "Syncing database..."
                         tvProgress.text = progress
-                    } else if (workInfo.state == WorkInfo.State.SUCCEEDED || workInfo.state == WorkInfo.State.ENQUEUED) {
-                        tvProgress.text = "Database Up to Date (750k+ Domains)"
+                    } else if (workInfo.state == WorkInfo.State.SUCCEEDED) {
+                        tvProgress.text = "Database Up to Date"
                     }
                 }
             }
@@ -168,6 +171,18 @@ class MainActivity : AppCompatActivity() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
+            
+        // Initial sync on startup
+        val oneTimeRequest = OneTimeWorkRequestBuilder<BlocklistUpdateWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "InitialBlocklistUpdateWork",
+            ExistingWorkPolicy.KEEP,
+            oneTimeRequest
+        )
+
+        // Periodic sync every 24 hours
         val updateRequest = PeriodicWorkRequestBuilder<BlocklistUpdateWorker>(24, TimeUnit.HOURS)
             .setConstraints(constraints)
             .build()

@@ -33,7 +33,19 @@ class PureBrowseVpnService : VpnService() {
     fun isDomainBlocked(domain: String): Boolean {
         val db = com.purebrowse.vpn.db.AppDatabase.getDatabase(this)
         val dao = db.domainDao()
-        return dao.isAutoBlockedSync(domain) > 0 || dao.isUserBlockedSync(domain) > 0
+        
+        var currentDomain = domain
+        while (currentDomain.isNotEmpty()) {
+            if (dao.isAutoBlockedSync(currentDomain) > 0 || dao.isUserBlockedSync(currentDomain) > 0) {
+                return true
+            }
+            val firstDotIndex = currentDomain.indexOf('.')
+            if (firstDotIndex == -1 || firstDotIndex == currentDomain.length - 1) {
+                break
+            }
+            currentDomain = currentDomain.substring(firstDotIndex + 1)
+        }
+        return false
     }
 
     // Called from C++ via JNI to protect the proxy socket

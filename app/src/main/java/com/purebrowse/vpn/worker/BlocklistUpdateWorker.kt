@@ -19,8 +19,6 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
     companion object {
         private const val TAG = "BlocklistUpdateWorker"
         private const val META_URL = "https://raw.githubusercontent.com/Bon-Appetit/porn-domains/main/meta.json"
-        // Assuming blocklist is here. In reality, we might extract this URL from the meta.json response.
-        private const val LIST_URL = "https://raw.githubusercontent.com/Bon-Appetit/porn-domains/main/blocklist.txt"
     }
 
     override suspend fun doWork(): Result {
@@ -34,7 +32,9 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
             }
 
             val metaJson = JSONObject(metaResponse)
-            val newVersion = metaJson.optString("version", "") // Or "hash" depending on their JSON structure
+            val blocklistObj = metaJson.optJSONObject("blocklist")
+            val listUrl = blocklistObj?.optString("raw_url")
+            val newVersion = blocklistObj?.optString("updated") ?: ""
 
             // TODO: Compare newVersion with a locally stored version in SharedPreferences.
             // If they are the same, return Result.success() immediately.
@@ -43,10 +43,15 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
 
             setProgress(workDataOf("PROGRESS" to "Downloading list..."))
 
+            if (listUrl.isNullOrEmpty()) {
+                Log.e(TAG, "Failed to find raw_url in meta.json")
+                return Result.retry()
+            }
+
             // 2. Fetch the actual blocklist
-            val listResponse = fetchUrl(LIST_URL)
+            val listResponse = fetchUrl(listUrl)
             if (listResponse == null) {
-                Log.e(TAG, "Failed to fetch blocklist.txt")
+                Log.e(TAG, "Failed to fetch blocklist from \$listUrl")
                 return Result.retry()
             }
 
