@@ -25,9 +25,11 @@ class PureBrowseVpnService : VpnService() {
         }
     }
 
+    @androidx.annotation.Keep
     private external fun startPacketProcessing(tunFd: Int)
 
     // Called from C++ via JNI
+    @androidx.annotation.Keep
     fun isDomainBlocked(domain: String): Boolean {
         val db = com.purebrowse.vpn.db.AppDatabase.getDatabase(this)
         val dao = db.domainDao()
@@ -35,6 +37,7 @@ class PureBrowseVpnService : VpnService() {
     }
 
     // Called from C++ via JNI to protect the proxy socket
+    @androidx.annotation.Keep
     fun protectSocket(fd: Int): Boolean {
         return protect(fd)
     }

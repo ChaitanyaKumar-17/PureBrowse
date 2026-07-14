@@ -10,32 +10,48 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:orientation="vertical">
 
-        <ImageView
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@drawable/ic_launcher"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="16dp"/>
-
-        <TextView
-            android:layout_width="wrap_content"
+        <!-- Sleek Arch Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="PureBrowse"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:background="@drawable/bg_arch"
+            android:elevation="8dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="48dp"
+            android:paddingTop="32dp">
 
-        <TextView
-            android:id="@+id/tvStreak"
-            android:layout_width="wrap_content"
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@mipmap/ic_launcher"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PureBrowse"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStreak"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Protection Broken: 0 Times"
+                android:textColor="#B0B0B0"
+                android:textSize="14sp"/>
+        </LinearLayout>
+
+        <!-- Main Content Area -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Protection Broken: 0 Times"
-            android:textColor="#B0B0B0"
-            android:textSize="14sp"
-            android:layout_marginBottom="32dp"/>
+            android:orientation="vertical"
+            android:padding="24dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStartVpn"
@@ -122,5 +138,6 @@
             android:orientation="vertical">
         </LinearLayout>
 
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

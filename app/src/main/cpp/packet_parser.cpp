@@ -87,6 +87,7 @@ Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
     int proxy_fd = socket(AF_INET, SOCK_DGRAM, 0);
     jclass serviceClass = env->GetObjectClass(thisObj);
     jmethodID protectMethod = env->GetMethodID(serviceClass, "protectSocket", "(I)Z");
+    jmethodID isBlockedMethod = env->GetMethodID(serviceClass, "isDomainBlocked", "(Ljava/lang/String;)Z");
     env->CallBooleanMethod(thisObj, protectMethod, proxy_fd);
     
     struct sockaddr_in dns_server;
@@ -120,7 +121,6 @@ Java_com_purebrowse_vpn_PureBrowseVpnService_startPacketProcessing(
                 std::string domain = extract_dns_query(buffer.data() + ip_header_len + 8, length - ip_header_len - 8);
                 if (!domain.empty()) {
                     jstring jdomain = env->NewStringUTF(domain.c_str());
-                    jmethodID isBlockedMethod = env->GetMethodID(serviceClass, "isDomainBlocked", "(Ljava/lang/String;)Z");
                     jboolean isBlocked = env->CallBooleanMethod(thisObj, isBlockedMethod, jdomain);
                     env->DeleteLocalRef(jdomain);
                     
