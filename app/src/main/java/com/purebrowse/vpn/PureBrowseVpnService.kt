@@ -1,10 +1,14 @@
 package com.purebrowse.vpn
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.net.VpnService
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import androidx.core.app.NotificationCompat
 
 class PureBrowseVpnService : VpnService() {
 
@@ -14,6 +18,7 @@ class PureBrowseVpnService : VpnService() {
         const val ACTION_CONNECT = "com.purebrowse.vpn.CONNECT"
         const val ACTION_DISCONNECT = "com.purebrowse.vpn.DISCONNECT"
         private const val TAG = "PureBrowseVpnService"
+        var isRunning = false
 
         init {
             System.loadLibrary("vpn-engine")
@@ -29,14 +34,35 @@ class PureBrowseVpnService : VpnService() {
         return dao.isAutoBlockedSync(domain) > 0 || dao.isUserBlockedSync(domain) > 0
     }
 
+    // Called from C++ via JNI to protect the proxy socket
+    fun protectSocket(fd: Int): Boolean {
+        return protect(fd)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISCONNECT) {
             stopVpn()
             return Service.START_NOT_STICKY
         }
 
+        createNotificationChannel()
+        val notification = NotificationCompat.Builder(this, "VPN_CHANNEL")
+            .setContentTitle("PureBrowse VPN")
+            .setContentText("Protection is active.")
+            .setSmallIcon(R.drawable.ic_launcher)
+            .build()
+        
+        startForeground(1, notification)
         connectVpn()
         return Service.START_STICKY
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel("VPN_CHANNEL", "VPN Status", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
     }
 
     private fun connectVpn() {
@@ -48,32 +74,22 @@ class PureBrowseVpnService : VpnService() {
         val builder = Builder()
         builder.setSession("PureBrowse VPN")
         
-        // Add a route to capture all traffic (0.0.0.0/0) or specific DNS traffic
-        // To only capture DNS, we would normally route the DNS server IPs, 
-        // but often we just capture all and filter port 53 packets in our native tunnel.
-        // For now we set a dummy local address for the TUN interface.
-        builder.addAddress("10.0.0.2", 24)
-        
-        // Route all traffic through the VPN. (Later we might refine this or just drop non-DNS traffic locally)
-        builder.addRoute("0.0.0.0", 0)
+        // MVP DNS Routing Trick:
+        // We set our TUN interface to receive all DNS queries.
+        // We do NOT route 0.0.0.0/0, so regular TCP traffic (like HTTPS) bypasses the VPN.
+        builder.addAddress("10.0.0.2", 32)
+        builder.addDnsServer("10.0.0.3")
+        builder.addRoute("10.0.0.3", 32)
 
-        // Block connections without VPN (kill switch equivalent)
         builder.setBlocking(true)
-
-        // Exclude our own app so we can actually fetch the blocklist!
-        try {
-            builder.addDisallowedApplication(packageName)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to exclude own app", e)
-        }
 
         try {
             vpnInterface = builder.establish()
             Log.i(TAG, "VPN interface established")
             
             val fd = vpnInterface?.fd ?: return
+            isRunning = true
             
-            // Start the JNI loop in a background thread so we don't block the Service
             Thread {
                 startPacketProcessing(fd)
             }.start()
@@ -87,10 +103,12 @@ class PureBrowseVpnService : VpnService() {
         try {
             vpnInterface?.close()
             vpnInterface = null
+            isRunning = false
             Log.i(TAG, "VPN disconnected")
         } catch (e: Exception) {
             Log.e(TAG, "Error closing VPN interface", e)
         }
+        stopForeground(true)
         stopSelf()
     }
 
@@ -100,8 +118,6 @@ class PureBrowseVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        // This fires if the user disables the VPN from system settings
-        // §7a: This is where we will log the disconnect event to public storage to track "streaks".
         Log.w(TAG, "VPN access revoked by user system settings.")
         super.onRevoke()
         stopVpn()

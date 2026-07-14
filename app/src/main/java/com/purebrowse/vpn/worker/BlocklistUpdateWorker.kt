@@ -40,6 +40,8 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
 
             Log.i(TAG, "New version detected: \$newVersion. Downloading blocklist...")
 
+            setProgress(workDataOf("PROGRESS" to "Downloading list..."))
+
             // 2. Fetch the actual blocklist
             val listResponse = fetchUrl(LIST_URL)
             if (listResponse == null) {
@@ -55,11 +57,14 @@ class BlocklistUpdateWorker(appContext: Context, workerParams: WorkerParameters)
 
             Log.i(TAG, "Parsed \${domains.size} domains. Updating database...")
 
+            setProgress(workDataOf("PROGRESS" to "Building database..."))
+
             // 4. Update the database within a transaction
             val database = AppDatabase.getDatabase(applicationContext)
             database.domainDao().replaceAllAutoDomains(domains)
 
             Log.i(TAG, "Blocklist update complete!")
+            setProgress(workDataOf("PROGRESS" to "Complete!"))
 
             // TODO: Save the newVersion string to SharedPreferences so we don't re-download it tomorrow unless it changes.
 

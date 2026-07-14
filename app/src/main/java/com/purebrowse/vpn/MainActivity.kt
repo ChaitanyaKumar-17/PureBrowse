@@ -3,8 +3,10 @@ package com.purebrowse.vpn
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.graphics.Color
 import android.net.VpnService
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -22,6 +24,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var manualDomainsList: LinearLayout
     private lateinit var etManualDomain: EditText
     private lateinit var tvStreak: TextView
+    private lateinit var tvProgress: TextView
+    private lateinit var btnStartVpn: Button
+    private lateinit var btnStopVpn: Button
     private lateinit var prefs: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,21 +35,21 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences("vpn_prefs", Context.MODE_PRIVATE)
 
-        val btnStartVpn: Button = findViewById(R.id.btnStartVpn)
-        val btnStopVpn: Button = findViewById(R.id.btnStopVpn)
+        btnStartVpn = findViewById(R.id.btnStartVpn)
+        btnStopVpn = findViewById(R.id.btnStopVpn)
         val btnAddDomain: Button = findViewById(R.id.btnAddDomain)
         
         manualDomainsList = findViewById(R.id.manualDomainsList)
         etManualDomain = findViewById(R.id.etManualDomain)
         tvStreak = findViewById(R.id.tvStreak)
+        tvProgress = findViewById(R.id.tvProgress)
 
         btnStartVpn.setOnClickListener { prepareVpn() }
         
         btnStopVpn.setOnClickListener {
-            // Track the streak break
             val count = prefs.getInt("disable_count", 0) + 1
             prefs.edit().putInt("disable_count", count).apply()
-            updateStreakUI()
+            updateUI()
 
             val intent = Intent(this, PureBrowseVpnService::class.java)
             intent.action = PureBrowseVpnService.ACTION_DISCONNECT
@@ -60,14 +65,37 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        updateStreakUI()
+        WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWorkLiveData("BlocklistUpdateWork")
+            .observe(this) { workInfos ->
+                if (workInfos.isNotEmpty()) {
+                    val workInfo = workInfos[0]
+                    if (workInfo.state == WorkInfo.State.RUNNING) {
+                        val progress = workInfo.progress.getString("PROGRESS") ?: "Syncing database..."
+                        tvProgress.text = progress
+                    } else if (workInfo.state == WorkInfo.State.SUCCEEDED || workInfo.state == WorkInfo.State.ENQUEUED) {
+                        tvProgress.text = "Database Up to Date (750k+ Domains)"
+                    }
+                }
+            }
+
+        updateUI()
         scheduleBlocklistUpdates()
         loadManualDomains()
     }
 
-    private fun updateStreakUI() {
+    override fun onResume() {
+        super.onResume()
+        updateUI()
+    }
+
+    private fun updateUI() {
         val count = prefs.getInt("disable_count", 0)
-        tvStreak.text = "Protection Broken: \$count Times"
+        tvStreak.text = "Protection Broken: $count Times"
+        
+        val isRunning = PureBrowseVpnService.isRunning
+        btnStartVpn.visibility = if (isRunning) View.GONE else View.VISIBLE
+        btnStopVpn.visibility = if (isRunning) View.VISIBLE else View.GONE
     }
 
     private fun addManualDomain(domain: String) {
@@ -99,7 +127,8 @@ class MainActivity : AppCompatActivity() {
                 manualDomainsList.removeAllViews()
                 for (userDomain in domains) {
                     val view = layoutInflater.inflate(android.R.layout.simple_list_item_1, null) as TextView
-                    view.text = "\${userDomain.domain} (Tap to remove)"
+                    view.text = "${userDomain.domain} (Tap to remove)"
+                    view.setTextColor(Color.parseColor("#B0B0B0"))
                     view.setOnClickListener {
                         removeManualDomain(userDomain.domain)
                     }
@@ -131,6 +160,8 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, PureBrowseVpnService::class.java)
         intent.action = PureBrowseVpnService.ACTION_CONNECT
         startService(intent)
+        // Delay UI update slightly to allow service to start
+        etManualDomain.postDelayed({ updateUI() }, 500)
     }
 
     private fun scheduleBlocklistUpdates() {

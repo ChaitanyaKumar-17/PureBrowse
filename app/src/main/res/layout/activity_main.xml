@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#121212"
     android:fillViewport="true">
 
     <LinearLayout
@@ -11,53 +13,79 @@
         android:orientation="vertical"
         android:padding="24dp">
 
+        <ImageView
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_launcher"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="PureBrowse VPN"
+            android:text="PureBrowse"
+            android:textColor="#FFFFFF"
             android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="#0055ff"
-            android:layout_marginBottom="8dp"/>
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvStreak"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Protection Active: 0 Times Disabled"
-            android:textSize="16sp"
+            android:text="Protection Broken: 0 Times"
+            android:textColor="#B0B0B0"
+            android:textSize="14sp"
             android:layout_marginBottom="32dp"/>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStartVpn"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Enable Protection"
-            android:backgroundTint="#0055ff"
+            android:layout_height="64dp"
+            android:text="ENABLE PROTECTION"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="16dp"
+            app:backgroundTint="#0055FF"
             android:layout_marginBottom="16dp"/>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStopVpn"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Disable (Not Recommended)"
-            android:backgroundTint="#e0e0e0"
-            android:textColor="#333333"
-            android:layout_marginBottom="32dp"/>
+            android:layout_height="64dp"
+            android:text="DISABLE (NOT RECOMMENDED)"
+            android:textColor="#FF3B30"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="16dp"
+            app:backgroundTint="#2C2C2E"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#4CD964"
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="24dp"/>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="#ccc"
-            android:layout_marginBottom="16dp"/>
+            android:background="#333333"
+            android:layout_marginBottom="24dp"/>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Manual Domain Blocks"
+            android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="12dp"/>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -69,16 +97,21 @@
                 android:id="@+id/etManualDomain"
                 android:layout_width="0dp"
                 android:layout_weight="1"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
+                android:background="@drawable/rounded_edittext"
+                android:paddingHorizontal="16dp"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888"
                 android:hint="e.g. reddit.com"
                 android:inputType="textUri"/>
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAddDomain"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="50dp"
                 android:text="Add"
-                android:backgroundTint="#0055ff"
+                app:cornerRadius="12dp"
+                app:backgroundTint="#0055FF"
                 android:layout_marginStart="8dp"/>
         </LinearLayout>
 
