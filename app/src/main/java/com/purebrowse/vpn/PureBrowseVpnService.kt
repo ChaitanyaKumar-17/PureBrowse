@@ -52,7 +52,7 @@ class PureBrowseVpnService : VpnService() {
         val notification = NotificationCompat.Builder(this, "VPN_CHANNEL")
             .setContentTitle("PureBrowse VPN")
             .setContentText("Protection is active.")
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .build()
         
         startForeground(1, notification)
