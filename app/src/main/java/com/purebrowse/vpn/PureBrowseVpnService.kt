@@ -14,7 +14,13 @@ class PureBrowseVpnService : VpnService() {
         const val ACTION_CONNECT = "com.purebrowse.vpn.CONNECT"
         const val ACTION_DISCONNECT = "com.purebrowse.vpn.DISCONNECT"
         private const val TAG = "PureBrowseVpnService"
+
+        init {
+            System.loadLibrary("vpn-engine")
+        }
     }
+
+    private external fun startPacketProcessing(tunFd: Int)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_DISCONNECT) {
@@ -58,9 +64,12 @@ class PureBrowseVpnService : VpnService() {
             vpnInterface = builder.establish()
             Log.i(TAG, "VPN interface established")
             
-            // TODO: Start a background thread to read from vpnInterface.fileDescriptor
-            // This is where we will pass the FileDescriptor to JNI/Native code to read packets,
-            // parse DNS requests, and sinkhole blocked domains.
+            val fd = vpnInterface?.fd ?: return
+            
+            // Start the JNI loop in a background thread so we don't block the Service
+            Thread {
+                startPacketProcessing(fd)
+            }.start()
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to establish VPN", e)
